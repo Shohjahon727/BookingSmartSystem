@@ -1,8 +1,10 @@
+using BookingApi.Application.DTOs.Booking;
 using BookingApi.Application.Interfaces;
 using BookingApi.Application.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace BookingApi.Infrastructure.BackgroundJobs
 {
@@ -58,6 +60,19 @@ namespace BookingApi.Infrastructure.BackgroundJobs
 					break;
 				case NotificationChannel.Sms:
 					await notificationService.SendSmsAsync(job.Recipient, job.Message, cancellationToken);
+					break;
+				case NotificationChannel.BookingConfirmationEmail:
+					var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+					var booking = JsonSerializer.Deserialize<BookingResponse>(job.BookingDataJson ?? "{}");
+					if (booking != null)
+					{
+						await emailService.SendBookingConfirmationAsync(
+							job.Recipient,
+							job.GuestName ?? "Mehmon",
+							booking,
+							job.PropertyTitle ?? "Uy",
+							cancellationToken);
+					}
 					break;
 			}
 		}

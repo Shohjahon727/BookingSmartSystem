@@ -33,3 +33,12 @@ GET {{host}}/api/v1/properties?city=Tashkent
 ### API version header orqali
 GET {{host}}/api/properties?city=Tashkent
 X-Api-Version: 1.0
+
+### Uyga rasm yuklash (Host token kerak)
+# POST {{host}}/api/properties/{id}/image
+# Content-Type: multipart/form-data
+# Authorization: Bearer {HOST_TOKEN}
+# image: [file]
+
+### SignalR test sahifa
+GET {{host}}/signalr-test.html

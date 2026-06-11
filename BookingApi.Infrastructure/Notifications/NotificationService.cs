@@ -1,34 +1,34 @@
 using BookingApi.Application.Interfaces;
+using BookingApi.Application.Models;
 using Microsoft.Extensions.Logging;
 
 namespace BookingApi.Infrastructure.Notifications
 {
 	public class NotificationService : INotificationService
 	{
+		private readonly IEmailService _emailService;
 		private readonly ILogger<NotificationService> _logger;
 
-		public NotificationService(ILogger<NotificationService> logger)
+		public NotificationService(IEmailService emailService, ILogger<NotificationService> logger)
 		{
+			_emailService = emailService;
 			_logger = logger;
 		}
 
-		public Task SendEmailAsync(string to, string subject, string message, CancellationToken cancellationToken = default)
+		public async Task SendEmailAsync(string to, string subject, string message, CancellationToken cancellationToken = default)
 		{
-			// Mock email — production da SendGrid, SMTP va h.k. ulanadi
-			_logger.LogInformation(
-				"[EMAIL] To: {To} | Subject: {Subject} | Message: {Message}",
-				to, subject, message);
-
-			return Task.CompletedTask;
+			await _emailService.SendAsync(new EmailMessage
+			{
+				To = to,
+				Subject = subject,
+				HtmlBody = $"<p>{message}</p>",
+				TextBody = message
+			}, cancellationToken);
 		}
 
 		public Task SendSmsAsync(string phoneNumber, string message, CancellationToken cancellationToken = default)
 		{
-			// Mock SMS — production da Eskiz, Twilio va h.k. ulanadi
-			_logger.LogInformation(
-				"[SMS] To: {Phone} | Message: {Message}",
-				phoneNumber, message);
-
+			_logger.LogInformation("[SMS] To: {Phone} | Message: {Message}", phoneNumber, message);
 			return Task.CompletedTask;
 		}
 	}

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: booking-api-config
+  namespace: booking-system
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_URLS: "http://+:8080"
+  Redis__Enabled: "true"
+  Redis__ConnectionString: "redis-service:6379"
+  Elasticsearch__Enabled: "true"
+  Elasticsearch__Url: "http://elasticsearch-service:9200"
+  Elasticsearch__IndexName: "properties"
+  FileStorage__Provider: "S3"
+  AwsS3__BucketName: "booking-smart-properties"
+  AwsS3__Region: "us-east-1"
+  AwsS3__KeyPrefix: "properties/"
+  Jwt__Issuer: "BookingApi"
+  Jwt__Audience: "BookingClient"
+  Jwt__ExpiryMinutes: "60"

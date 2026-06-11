@@ -1,5 +1,6 @@
 ﻿using BookingApi.Application.DTOs.Property;
 using BookingApi.Application.Exceptions;
+using BookingApi.Application.Helpers;
 using BookingApi.Application.Interfaces;
 using BookingApi.Domain.Entities;
 using BookingApi.Infrastructure.Caching;
@@ -12,18 +13,26 @@ namespace BookingApi.Infrastructure.Services
 		private readonly IPropertyRepository _propertyRepository;
 		private readonly IUnitOfWork _unitOfWork;
 		private readonly ICacheService _cache;
+		private readonly IFileStorageService _fileStorage;
+		private readonly IPropertySearchService _propertySearchService;
 		private readonly TimeSpan _cacheExpiration;
+		private readonly long _maxImageSizeMb;
 
 		public PropertyService(
 			IPropertyRepository propertyRepository,
 			IUnitOfWork unitOfWork,
 			ICacheService cache,
+			IFileStorageService fileStorage,
+			IPropertySearchService propertySearchService,
 			IConfiguration configuration)
 		{
 			_propertyRepository = propertyRepository;
 			_unitOfWork = unitOfWork;
 			_cache = cache;
+			_fileStorage = fileStorage;
+			_propertySearchService = propertySearchService;
 			_cacheExpiration = TimeSpan.FromMinutes(configuration.GetValue("Redis:DefaultExpirationMinutes", 10));
+			_maxImageSizeMb = configuration.GetValue("FileStorage:MaxImageSizeMb", 5);
 		}
 
 		public async Task<PropertyResponse> CreateAsync(CreatePropertyRequest request, Guid ownerId)
@@ -49,6 +58,7 @@ namespace BookingApi.Infrastructure.Services
 
 			var response = MapToResponse(property);
 			await _cache.SetAsync(CacheKeys.Property(property.Id), response, _cacheExpiration);
+			await _propertySearchService.IndexPropertyAsync(property);
 			return response;
 		}
 
@@ -75,7 +85,7 @@ namespace BookingApi.Infrastructure.Services
 			if (cached != null)
 				return (cached.Items, cached.TotalCount);
 
-			var (items, totalCount) = await _propertyRepository.SearchPropertiesAsync(
+			var (items, totalCount) = await _propertySearchService.SearchAsync(
 				request.City,
 				request.CheckInDate,
 				request.CheckOutDate,
@@ -120,6 +130,7 @@ namespace BookingApi.Infrastructure.Services
 			await _unitOfWork.SaveChangesAsync();
 
 			await _cache.RemoveAsync(CacheKeys.Property(id));
+			await _propertySearchService.IndexPropertyAsync(property);
 			return MapToResponse(property);
 		}
 
@@ -132,9 +143,42 @@ namespace BookingApi.Infrastructure.Services
 			if (property.OwnerId != ownerId)
 				throw new UnauthorizedAccessException("Bu uy sizga tegishli emas");
 
+			if (!string.IsNullOrWhiteSpace(property.ImageUrl))
+				await _fileStorage.DeletePropertyImageAsync(property.ImageUrl);
+
 			_propertyRepository.DeleteAsync(property);
 			await _unitOfWork.SaveChangesAsync();
 			await _cache.RemoveAsync(CacheKeys.Property(id));
+			await _propertySearchService.DeleteFromIndexAsync(id);
+		}
+
+		public async Task<PropertyResponse> UploadImageAsync(
+			Guid propertyId,
+			Stream imageStream,
+			string fileName,
+			string contentType,
+			long fileSize,
+			Guid ownerId)
+		{
+			ImageFileValidator.Validate(fileName, contentType, fileSize, _maxImageSizeMb);
+
+			var property = await _propertyRepository.GetByIdAsync(propertyId);
+			if (property == null)
+				throw new NotFoundException("Property", propertyId);
+
+			if (property.OwnerId != ownerId)
+				throw new UnauthorizedAccessException("Bu uy sizga tegishli emas");
+
+			if (!string.IsNullOrWhiteSpace(property.ImageUrl))
+				await _fileStorage.DeletePropertyImageAsync(property.ImageUrl);
+
+			property.ImageUrl = await _fileStorage.SavePropertyImageAsync(imageStream, fileName, contentType);
+			_propertyRepository.UpdateAsync(property);
+			await _unitOfWork.SaveChangesAsync();
+			await _cache.RemoveAsync(CacheKeys.Property(propertyId));
+			await _propertySearchService.IndexPropertyAsync(property);
+
+			return MapToResponse(property);
 		}
 
 		private sealed record SearchCacheResult(List<PropertyResponse> Items, int TotalCount);

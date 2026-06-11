@@ -4,6 +4,8 @@ using BookingApi.Infrastructure.Data;
 using BookingApi.Infrastructure.Repositories;
 using BookingApi.Infrastructure.Services;
 using BookingSystem.API.Extensions;
+using BookingSystem.API.Grpc;
+using BookingSystem.API.Hubs;
 using BookingSystem.API.Swagger;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -33,6 +35,11 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddCachingServices(builder.Configuration);
 builder.Services.AddBackgroundJobServices();
+builder.Services.AddFileStorageServices(builder.Configuration);
+builder.Services.AddElasticsearchServices(builder.Configuration);
+builder.Services.AddGrpcServices();
+builder.Services.AddPrometheusMetrics();
+builder.Services.AddSignalRServices();
 builder.Services.AddRateLimitingServices(builder.Configuration);
 builder.Services.AddApiVersioningServices();
 builder.Services.AddHealthCheckServices(builder.Configuration);
@@ -42,6 +49,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 var key = Encoding.UTF8.GetBytes(jwtSecret);
+var signalREvents = SignalRExtensions.CreateSignalRJwtEvents();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -61,6 +69,8 @@ builder.Services.AddAuthentication(options =>
 		IssuerSigningKey = new SymmetricSecurityKey(key),
 		ClockSkew = TimeSpan.Zero
 	};
+
+	options.Events = signalREvents;
 });
 
 builder.Services.AddControllers();
@@ -105,6 +115,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseGlobalExceptionHandler();
+app.UseStaticFiles();
+app.UsePropertyImageStaticFiles(builder.Configuration);
 
 if (app.Environment.IsDevelopment())
 {
@@ -122,6 +134,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UsePrometheusMetrics();
 app.UseRateLimiter();
 
 app.UseAuthentication();
@@ -129,5 +142,8 @@ app.UseAuthorization();
 
 app.MapHealthCheckEndpoints();
 app.MapControllers();
+app.MapHub<BookingNotificationHub>("/hubs/bookings");
+app.MapGrpcService<PropertyGrpcService>();
+app.MapGrpcService<BookingGrpcService>();
 
 app.Run();

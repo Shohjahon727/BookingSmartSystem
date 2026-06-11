@@ -15,5 +15,7 @@ namespace BookingApi.Application.Interfaces
 		Task<IEnumerable<PropertyResponse>> GetMyPropertiesAsync(Guid ownerId);
 		Task<PropertyResponse> UpdateAsync(Guid id, CreatePropertyRequest request, Guid ownerId);
 		Task DeleteAsync(Guid id, Guid ownerId);
+		Task<PropertyResponse> UploadImageAsync(Guid propertyId, Stream imageStream, string fileName, string contentType, long fileSize, Guid ownerId);
 	}
 }
+

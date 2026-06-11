@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <title>SignalR Booking Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+    input, button { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    #log { background: #111; color: #0f0; padding: 12px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h2>SignalR — Booking Notifications</h2>
+  <label>JWT Token</label>
+  <input id="token" placeholder="Bearer tokensiz, faqat token matni" />
+  <button onclick="connect()">Ulanish</button>
+  <button onclick="disconnect()">Uzish</button>
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script>
+    let connection = null;
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function connect() {
+      const token = document.getElementById('token').value.trim();
+      if (!token) { alert('Token kiriting'); return; }
+
+      connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/bookings?access_token=' + encodeURIComponent(token))
+        .withAutomaticReconnect()
+        .build();
+
+      connection.on('BookingNotification', (data) => {
+        log('📩 ' + JSON.stringify(data));
+      });
+
+      connection.onreconnecting(() => log('Qayta ulanmoqda...'));
+      connection.onreconnected(() => log('Qayta ulandi'));
+      connection.onclose(() => log('Uzildi'));
+
+      try {
+        await connection.start();
+        log('✅ SignalR ulandi');
+      } catch (e) {
+        log('❌ Xatolik: ' + e);
+      }
+    }
+
+    async function disconnect() {
+      if (connection) await connection.stop();
+    }
+  </script>
+</body>
+</html>

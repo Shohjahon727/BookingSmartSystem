@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingSystem.API.Grpc";
+
+package property;
+
+service PropertyGrpc {
+  rpc GetProperty (GetPropertyRequest) returns (PropertyReply);
+  rpc SearchProperties (SearchPropertiesRequest) returns (SearchPropertiesReply);
+}
+
+message GetPropertyRequest {
+  string id = 1;
+}
+
+message SearchPropertiesRequest {
+  string city = 1;
+  double min_price = 2;
+  double max_price = 3;
+  int32 max_guests = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message PropertyReply {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string city = 4;
+  string country = 5;
+  double price_per_night = 6;
+  int32 max_guests = 7;
+  int32 bedrooms = 8;
+  int32 bathrooms = 9;
+  string image_url = 10;
+}
+
+message SearchPropertiesReply {
+  repeated PropertyReply items = 1;
+  int32 total_count = 2;
+}

@@ -4,6 +4,7 @@ using BookingApi.Application.Interfaces;
 using BookingApi.Application.Models;
 using BookingApi.Domain.Entities;
 using BookingApi.Domain.Enums;
+using System.Text.Json;
 
 namespace BookingApi.Infrastructure.Services
 {
@@ -14,6 +15,7 @@ namespace BookingApi.Infrastructure.Services
 		private readonly IUserRepository _userRepository;
 		private readonly IPaymentService _paymentService;
 		private readonly IBackgroundJobQueue _backgroundJobQueue;
+		private readonly IRealTimeNotificationService _realTimeNotificationService;
 		private readonly IUnitOfWork _unitOfWork;
 
 		public BookingService(
@@ -22,6 +24,7 @@ namespace BookingApi.Infrastructure.Services
 			IUserRepository userRepository,
 			IPaymentService paymentService,
 			IBackgroundJobQueue backgroundJobQueue,
+			IRealTimeNotificationService realTimeNotificationService,
 			IUnitOfWork unitOfWork)
 		{
 			_bookingRepository = bookingRepository;
@@ -29,6 +32,7 @@ namespace BookingApi.Infrastructure.Services
 			_userRepository = userRepository;
 			_paymentService = paymentService;
 			_backgroundJobQueue = backgroundJobQueue;
+			_realTimeNotificationService = realTimeNotificationService;
 			_unitOfWork = unitOfWork;
 		}
 
@@ -99,10 +103,15 @@ namespace BookingApi.Infrastructure.Services
 			_bookingRepository.UpdateAsync(booking);
 			await _unitOfWork.SaveChangesAsync();
 
-			await EnqueueBookingNotificationAsync(booking, property.Title, paymentResult.Success);
-
 			booking.Property = property;
-			return MapToResponse(booking);
+			var response = MapToResponse(booking);
+
+			await EnqueueBookingNotificationAsync(booking, property, paymentResult.Success, response);
+
+			if (paymentResult.Success)
+				await _realTimeNotificationService.NotifyBookingConfirmedAsync(guestId, property.OwnerId, response, property.Title);
+
+			return response;
 		}
 
 		public async Task<BookingResponse?> GetByIdAsync(Guid id, Guid guestId)
@@ -146,6 +155,9 @@ namespace BookingApi.Infrastructure.Services
 			await _unitOfWork.SaveChangesAsync();
 
 			var guest = await _userRepository.GetByIdAsync(guestId);
+			var property = await _propertyRepository.GetByIdAsync(booking.PropertyId);
+			var response = MapToResponse(booking);
+
 			if (guest != null)
 			{
 				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
@@ -156,9 +168,12 @@ namespace BookingApi.Infrastructure.Services
 					Message = $"Bron #{id.ToString()[..8]} bekor qilindi. Sabab: {booking.CancellationReason}"
 				});
 			}
+
+			if (property != null)
+				await _realTimeNotificationService.NotifyBookingCancelledAsync(guestId, property.OwnerId, response, reason);
 		}
 
-		private async Task EnqueueBookingNotificationAsync(Booking booking, string propertyTitle, bool paymentSuccess)
+		private async Task EnqueueBookingNotificationAsync(Booking booking, Property property, bool paymentSuccess, BookingResponse response)
 		{
 			var guest = await _userRepository.GetByIdAsync(booking.GuestId);
 			if (guest == null)
@@ -168,10 +183,11 @@ namespace BookingApi.Infrastructure.Services
 			{
 				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
 				{
-					Channel = NotificationChannel.Email,
+					Channel = NotificationChannel.BookingConfirmationEmail,
 					Recipient = guest.PhoneNumber,
-					Subject = "Bron tasdiqlandi",
-					Message = $"{propertyTitle} uchun broningiz tasdiqlandi. Summa: {booking.TotalPrice:N0} so'm."
+					GuestName = guest.FullName,
+					PropertyTitle = property.Title,
+					BookingDataJson = JsonSerializer.Serialize(response)
 				});
 
 				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
@@ -179,7 +195,7 @@ namespace BookingApi.Infrastructure.Services
 					Channel = NotificationChannel.Sms,
 					Recipient = guest.PhoneNumber,
 					Subject = "Bron tasdiqlandi",
-					Message = $"Bron tasdiqlandi: {propertyTitle}, {booking.CheckInDate:dd.MM} - {booking.CheckOutDate:dd.MM}"
+					Message = $"Bron tasdiqlandi: {property.Title}, {booking.CheckInDate:dd.MM} - {booking.CheckOutDate:dd.MM}"
 				});
 			}
 			else

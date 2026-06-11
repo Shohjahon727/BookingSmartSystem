@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Booking API
+    orgId: 1
+    folder: Booking
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
