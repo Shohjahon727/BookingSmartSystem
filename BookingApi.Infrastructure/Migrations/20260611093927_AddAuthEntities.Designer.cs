@@ -3,6 +3,7 @@ using System;
 using BookingApi.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BookingApi.Infrastructure.Migrations
 {
     [DbContext(typeof(BookingDbContext))]
-    partial class BookingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611093927_AddAuthEntities")]
+    partial class AddAuthEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -31,11 +34,10 @@ namespace BookingApi.Infrastructure.Migrations
                     b.Property<string>("CancellationReason")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("CheckInDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ChekInDate");
-
                     b.Property<DateTime>("CheckOutDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ChekInDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
@@ -132,11 +134,13 @@ namespace BookingApi.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("Bathrooms")
-                        .HasColumnType("integer");
+                    b.Property<string>("BadRooms")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.Property<int>("Bedrooms")
-                        .HasColumnType("integer");
+                    b.Property<string>("BathRooms")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("City")
                         .IsRequired()
@@ -172,7 +176,7 @@ namespace BookingApi.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<string>("Title")
+                    b.Property<string>("Tilte")
                         .IsRequired()
                         .HasColumnType("text");
 

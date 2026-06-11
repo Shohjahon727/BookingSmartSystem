@@ -10,12 +10,12 @@ namespace BookingApi.Application.Interfaces
 	public interface IBookingRepository
 	{
 		Task<Booking?> GetByIdAsync(Guid id);
-		Task<Booking> GetByIdWithDetailsAsync(Guid id);
+		Task<Booking?> GetByIdWithDetailsAsync(Guid id);
 		Task<IEnumerable<Booking>> GetUserBookingsAsync(Guid userId);
 		Task<IEnumerable<Booking>> GetPropertyBookingAsync(Guid propertyId);
 
 		// 🔥 ENG MUHIM: Date Overlap Check
-		Task<bool> IsPropertyAvailableAsycn(Guid propertyId, DateTime checkIn, DateTime checkOut);
+		Task<bool> IsPropertyAvailableAsync(Guid propertyId, DateTime checkIn, DateTime checkOut);
 		// 🔥 Complex query: Property band sanalari
 		Task<IEnumerable<DateTime>> GetBookedDateAsync(Guid propertyId,DateTime form, DateTime to);
 

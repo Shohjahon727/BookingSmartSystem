@@ -10,9 +10,9 @@ namespace BookingApi.Domain.Entities
 {
 	public class User : BaseEntity
 	{
-		public string PhoneNumber { get; set; } 
-		public string FullName { get; set; }
-		public string PasswordHash { get; set; }
+		public string PhoneNumber { get; set; } = string.Empty;
+		public string FullName { get; set; } = string.Empty;
+		public string PasswordHash { get; set; } = string.Empty;
 		public UserRole Role { get; set; } = UserRole.Guest;
 
 		public ICollection<Property> Properties { get; set; } = new List<Property>();

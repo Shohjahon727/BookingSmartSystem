@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BookingApi.Domain.Entities
+namespace BookingApi.Application.DTOs.Property
 {
-	public class Property : BaseEntity
+	public class PropertyResponse
 	{
+		public Guid Id { get; set; }
 		public string Title { get; set; } = string.Empty;
 		public string Description { get; set; } = string.Empty;
 		public string Address { get; set; } = string.Empty;
@@ -15,14 +16,10 @@ namespace BookingApi.Domain.Entities
 		public string Country { get; set; } = string.Empty;
 		public decimal PricePerNight { get; set; }
 		public int MaxGuests { get; set; }
-		public int MinGuests { get; set; }
 		public int Bedrooms { get; set; }
 		public int Bathrooms { get; set; }
 		public string? ImageUrl { get; set; }
-
-		public Guid OwnerId { get; set; }
-		public User Owner { get; set; } = null!;
-
-		public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+		public DateTime CreatedAt { get; set; }
+		public string OwnerName { get; set; } = string.Empty;
 	}
 }

@@ -1,6 +1,46 @@
-@BookingSystem.API_HostAddress = http://localhost:5018
+@host = http://localhost:5018
+@guestToken = {{loginGuest.response.body.token}}
+@hostToken = {{loginHost.response.body.token}}
 
-GET {{BookingSystem.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1. Guest login (seed user)
+# @name loginGuest
+POST {{host}}/api/auth/login
+Content-Type: application/json
 
-###
+{
+  "phoneNumber": "+998903333333",
+  "password": "Guest1234"
+}
+
+### 2. Host login (seed user)
+# @name loginHost
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phoneNumber": "+998902222222",
+  "password": "Host1234"
+}
+
+### 3. Barcha uylarni qidirish (public)
+GET {{host}}/api/properties?city=Tashkent&page=1&pageSize=10
+
+### 4. Mening bronlarim (Guest)
+GET {{host}}/api/bookings/my
+Authorization: Bearer {{guestToken}}
+
+### 5. Bron qilish (Guest)
+POST {{host}}/api/bookings
+Authorization: Bearer {{guestToken}}
+Content-Type: application/json
+
+{
+  "propertyId": "PROPERTY_ID_BU_YERGA",
+  "checkInDate": "2026-06-20T00:00:00Z",
+  "checkOutDate": "2026-06-23T00:00:00Z",
+  "guestCount": 2
+}
+
+### 6. Host - mening uylarim
+GET {{host}}/api/properties/my
+Authorization: Bearer {{hostToken}}

@@ -1,15 +1,12 @@
 ﻿using BookingApi.Domain.Enums;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BookingApi.Domain.Entities
 {
 	public class Booking : BaseEntity
 	{
-		public DateTime ChekInDate { get; set; }
+		[Column("ChekInDate")]
+		public DateTime CheckInDate { get; set; }
 		public DateTime CheckOutDate { get; set; }
 
 		public int NumberOfNights { get; set; }

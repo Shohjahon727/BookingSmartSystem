@@ -10,7 +10,7 @@ namespace BookingApi.Domain.Entities
 	public class Payment : BaseEntity
 	{
 		public decimal Amount { get; set; }
-		public string PaymentMethod { get; set; }
+		public string PaymentMethod { get; set; } = string.Empty;
 		public string TransactionId { get; set; } = Guid.NewGuid().ToString();
 		public PaymentStatus Status { get; set; } = PaymentStatus.Unpaid;
 		public DateTime? ProcessedAt { get; set; }
