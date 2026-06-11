@@ -1,46 +1,35 @@
 @host = http://localhost:5018
-@guestToken = {{loginGuest.response.body.token}}
-@hostToken = {{loginHost.response.body.token}}
 
-### 1. Guest login (seed user)
-# @name loginGuest
-POST {{host}}/api/auth/login
+### Health — umumiy holat
+GET {{host}}/health
+
+### Health — ready (DB + Redis)
+GET {{host}}/health/ready
+
+### Health — live (app ishlayaptimi)
+GET {{host}}/health/live
+
+### V1 Login
+POST {{host}}/api/v1/auth/login
 Content-Type: application/json
 
 {
-  "phoneNumber": "+998903333333",
+  "phoneNumber": "903333333",
   "password": "Guest1234"
 }
 
-### 2. Host login (seed user)
-# @name loginHost
+### Legacy route (v1 default)
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 {
-  "phoneNumber": "+998902222222",
-  "password": "Host1234"
+  "phoneNumber": "903333333",
+  "password": "Guest1234"
 }
 
-### 3. Barcha uylarni qidirish (public)
-GET {{host}}/api/properties?city=Tashkent&page=1&pageSize=10
+### V1 — uylarni qidirish (cache)
+GET {{host}}/api/v1/properties?city=Tashkent
 
-### 4. Mening bronlarim (Guest)
-GET {{host}}/api/bookings/my
-Authorization: Bearer {{guestToken}}
-
-### 5. Bron qilish (Guest)
-POST {{host}}/api/bookings
-Authorization: Bearer {{guestToken}}
-Content-Type: application/json
-
-{
-  "propertyId": "PROPERTY_ID_BU_YERGA",
-  "checkInDate": "2026-06-20T00:00:00Z",
-  "checkOutDate": "2026-06-23T00:00:00Z",
-  "guestCount": 2
-}
-
-### 6. Host - mening uylarim
-GET {{host}}/api/properties/my
-Authorization: Bearer {{hostToken}}
+### API version header orqali
+GET {{host}}/api/properties?city=Tashkent
+X-Api-Version: 1.0

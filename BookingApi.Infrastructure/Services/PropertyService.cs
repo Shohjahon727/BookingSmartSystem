@@ -2,11 +2,8 @@
 using BookingApi.Application.Exceptions;
 using BookingApi.Application.Interfaces;
 using BookingApi.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using BookingApi.Infrastructure.Caching;
+using Microsoft.Extensions.Configuration;
 
 namespace BookingApi.Infrastructure.Services
 {
@@ -14,11 +11,19 @@ namespace BookingApi.Infrastructure.Services
 	{
 		private readonly IPropertyRepository _propertyRepository;
 		private readonly IUnitOfWork _unitOfWork;
+		private readonly ICacheService _cache;
+		private readonly TimeSpan _cacheExpiration;
 
-		public PropertyService(IPropertyRepository propertyRepository, IUnitOfWork unitOfWork)
+		public PropertyService(
+			IPropertyRepository propertyRepository,
+			IUnitOfWork unitOfWork,
+			ICacheService cache,
+			IConfiguration configuration)
 		{
 			_propertyRepository = propertyRepository;
 			_unitOfWork = unitOfWork;
+			_cache = cache;
+			_cacheExpiration = TimeSpan.FromMinutes(configuration.GetValue("Redis:DefaultExpirationMinutes", 10));
 		}
 
 		public async Task<PropertyResponse> CreateAsync(CreatePropertyRequest request, Guid ownerId)
@@ -42,17 +47,34 @@ namespace BookingApi.Infrastructure.Services
 			await _propertyRepository.AddAsync(property);
 			await _unitOfWork.SaveChangesAsync();
 
-			return MapToResponse(property);
+			var response = MapToResponse(property);
+			await _cache.SetAsync(CacheKeys.Property(property.Id), response, _cacheExpiration);
+			return response;
 		}
 
 		public async Task<PropertyResponse?> GetByIdAsync(Guid id)
 		{
+			var cacheKey = CacheKeys.Property(id);
+			var cached = await _cache.GetAsync<PropertyResponse>(cacheKey);
+			if (cached != null)
+				return cached;
+
 			var property = await _propertyRepository.GetByIdAsync(id);
-			return property == null ? null : MapToResponse(property);
+			if (property == null)
+				return null;
+
+			var response = MapToResponse(property);
+			await _cache.SetAsync(cacheKey, response, _cacheExpiration);
+			return response;
 		}
 
 		public async Task<(IEnumerable<PropertyResponse> Items, int TotalCount)> SearchAsync(SearchPropertyRequest request)
 		{
+			var cacheKey = CacheKeys.PropertySearch(request);
+			var cached = await _cache.GetAsync<SearchCacheResult>(cacheKey);
+			if (cached != null)
+				return (cached.Items, cached.TotalCount);
+
 			var (items, totalCount) = await _propertyRepository.SearchPropertiesAsync(
 				request.City,
 				request.CheckInDate,
@@ -63,7 +85,8 @@ namespace BookingApi.Infrastructure.Services
 				request.Page,
 				request.PageSize);
 
-			var responses = items.Select(MapToResponse);
+			var responses = items.Select(MapToResponse).ToList();
+			await _cache.SetAsync(cacheKey, new SearchCacheResult(responses, totalCount), _cacheExpiration);
 			return (responses, totalCount);
 		}
 
@@ -96,6 +119,7 @@ namespace BookingApi.Infrastructure.Services
 			_propertyRepository.UpdateAsync(property);
 			await _unitOfWork.SaveChangesAsync();
 
+			await _cache.RemoveAsync(CacheKeys.Property(id));
 			return MapToResponse(property);
 		}
 
@@ -110,7 +134,10 @@ namespace BookingApi.Infrastructure.Services
 
 			_propertyRepository.DeleteAsync(property);
 			await _unitOfWork.SaveChangesAsync();
+			await _cache.RemoveAsync(CacheKeys.Property(id));
 		}
+
+		private sealed record SearchCacheResult(List<PropertyResponse> Items, int TotalCount);
 
 		private static PropertyResponse MapToResponse(Property property)
 		{

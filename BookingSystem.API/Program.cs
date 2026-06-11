@@ -4,6 +4,7 @@ using BookingApi.Infrastructure.Data;
 using BookingApi.Infrastructure.Repositories;
 using BookingApi.Infrastructure.Services;
 using BookingSystem.API.Extensions;
+using BookingSystem.API.Swagger;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -18,6 +19,7 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
 		builder.Configuration.GetConnectionString("DefaultConnection"),
 		b => b.MigrationsAssembly("BookingApi.Infrastructure")
 	));
+
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IPropertyRepository, PropertyRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -28,6 +30,12 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPropertyService, PropertyService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+builder.Services.AddCachingServices(builder.Configuration);
+builder.Services.AddBackgroundJobServices();
+builder.Services.AddRateLimitingServices(builder.Configuration);
+builder.Services.AddApiVersioningServices();
+builder.Services.AddHealthCheckServices(builder.Configuration);
 
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
@@ -51,10 +59,9 @@ builder.Services.AddAuthentication(options =>
 		ValidIssuer = builder.Configuration["Jwt:Issuer"],
 		ValidAudience = builder.Configuration["Jwt:Audience"],
 		IssuerSigningKey = new SymmetricSecurityKey(key),
-		ClockSkew = TimeSpan.Zero  
+		ClockSkew = TimeSpan.Zero
 	};
 });
-
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -85,9 +92,10 @@ builder.Services.AddSwaggerGen(options =>
 		}
 	});
 });
-
+builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 
 var app = builder.Build();
+
 if (app.Environment.IsDevelopment())
 {
 	using var scope = app.Services.CreateScope();
@@ -95,19 +103,31 @@ if (app.Environment.IsDevelopment())
 	await context.Database.MigrateAsync();
 	await SeedData.SeedAsync(context);
 }
+
 app.UseGlobalExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
 	app.UseSwagger();
-	app.UseSwaggerUI();
+	app.UseSwaggerUI(options =>
+	{
+		var provider = app.Services.GetRequiredService<Asp.Versioning.ApiExplorer.IApiVersionDescriptionProvider>();
+		foreach (var description in provider.ApiVersionDescriptions)
+		{
+			options.SwaggerEndpoint(
+				$"/swagger/{description.GroupName}/swagger.json",
+				$"Booking API {description.GroupName.ToUpperInvariant()}");
+		}
+	});
 }
 
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthCheckEndpoints();
 app.MapControllers();
 
 app.Run();

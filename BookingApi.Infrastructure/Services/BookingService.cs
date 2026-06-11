@@ -1,13 +1,9 @@
 ﻿using BookingApi.Application.DTOs.Booking;
 using BookingApi.Application.Exceptions;
 using BookingApi.Application.Interfaces;
+using BookingApi.Application.Models;
 using BookingApi.Domain.Entities;
 using BookingApi.Domain.Enums;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BookingApi.Infrastructure.Services
 {
@@ -15,18 +11,24 @@ namespace BookingApi.Infrastructure.Services
 	{
 		private readonly IBookingRepository _bookingRepository;
 		private readonly IPropertyRepository _propertyRepository;
+		private readonly IUserRepository _userRepository;
 		private readonly IPaymentService _paymentService;
+		private readonly IBackgroundJobQueue _backgroundJobQueue;
 		private readonly IUnitOfWork _unitOfWork;
 
 		public BookingService(
 			IBookingRepository bookingRepository,
 			IPropertyRepository propertyRepository,
+			IUserRepository userRepository,
 			IPaymentService paymentService,
+			IBackgroundJobQueue backgroundJobQueue,
 			IUnitOfWork unitOfWork)
 		{
 			_bookingRepository = bookingRepository;
 			_propertyRepository = propertyRepository;
+			_userRepository = userRepository;
 			_paymentService = paymentService;
+			_backgroundJobQueue = backgroundJobQueue;
 			_unitOfWork = unitOfWork;
 		}
 
@@ -97,6 +99,9 @@ namespace BookingApi.Infrastructure.Services
 			_bookingRepository.UpdateAsync(booking);
 			await _unitOfWork.SaveChangesAsync();
 
+			await EnqueueBookingNotificationAsync(booking, property.Title, paymentResult.Success);
+
+			booking.Property = property;
 			return MapToResponse(booking);
 		}
 
@@ -139,6 +144,54 @@ namespace BookingApi.Infrastructure.Services
 
 			_bookingRepository.UpdateAsync(booking);
 			await _unitOfWork.SaveChangesAsync();
+
+			var guest = await _userRepository.GetByIdAsync(guestId);
+			if (guest != null)
+			{
+				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
+				{
+					Channel = NotificationChannel.Sms,
+					Recipient = guest.PhoneNumber,
+					Subject = "Bron bekor qilindi",
+					Message = $"Bron #{id.ToString()[..8]} bekor qilindi. Sabab: {booking.CancellationReason}"
+				});
+			}
+		}
+
+		private async Task EnqueueBookingNotificationAsync(Booking booking, string propertyTitle, bool paymentSuccess)
+		{
+			var guest = await _userRepository.GetByIdAsync(booking.GuestId);
+			if (guest == null)
+				return;
+
+			if (paymentSuccess)
+			{
+				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
+				{
+					Channel = NotificationChannel.Email,
+					Recipient = guest.PhoneNumber,
+					Subject = "Bron tasdiqlandi",
+					Message = $"{propertyTitle} uchun broningiz tasdiqlandi. Summa: {booking.TotalPrice:N0} so'm."
+				});
+
+				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
+				{
+					Channel = NotificationChannel.Sms,
+					Recipient = guest.PhoneNumber,
+					Subject = "Bron tasdiqlandi",
+					Message = $"Bron tasdiqlandi: {propertyTitle}, {booking.CheckInDate:dd.MM} - {booking.CheckOutDate:dd.MM}"
+				});
+			}
+			else
+			{
+				await _backgroundJobQueue.EnqueueAsync(new NotificationJob
+				{
+					Channel = NotificationChannel.Sms,
+					Recipient = guest.PhoneNumber,
+					Subject = "To'lov xatolik",
+					Message = $"Bron uchun to'lov amalga oshmadi. Qayta urinib ko'ring."
+				});
+			}
 		}
 
 		private static BookingResponse MapToResponse(Booking booking)

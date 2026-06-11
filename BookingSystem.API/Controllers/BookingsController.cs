@@ -1,4 +1,5 @@
-﻿using BookingApi.Application.DTOs.Booking;
+﻿using Asp.Versioning;
+using BookingApi.Application.DTOs.Booking;
 using BookingApi.Application.Interfaces;
 using BookingSystem.API.Extensions;
 using Microsoft.AspNetCore.Authorization;
@@ -7,8 +8,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingSystem.API.Controllers
 {
 	[ApiController]
+	[ApiVersion("1.0")]
+	[Route("api/v{version:apiVersion}/[controller]")]
 	[Route("api/[controller]")]
-	[Authorize]  // 🔒 Barcha endpointlar autentifikatsiya talab qiladi
+	[Authorize]
 	public class BookingsController : ControllerBase
 	{
 		private readonly IBookingService _bookingService;
@@ -19,7 +22,7 @@ namespace BookingSystem.API.Controllers
 		}
 
 		/// <summary>
-		/// Bron qilish (Guest)
+		/// Bron qilish (Guest) — background SMS/Email yuboriladi
 		/// </summary>
 		[HttpPost]
 		public async Task<ActionResult<BookingResponse>> Create([FromBody] CreateBookingRequest request)
@@ -53,7 +56,7 @@ namespace BookingSystem.API.Controllers
 		}
 
 		/// <summary>
-		/// Bron bekor qilish
+		/// Bron bekor qilish — background SMS yuboriladi
 		/// </summary>
 		[HttpPost("{id:guid}/cancel")]
 		public async Task<IActionResult> Cancel(Guid id, [FromBody] CancelBookingRequest? request)

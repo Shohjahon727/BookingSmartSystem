@@ -2,6 +2,7 @@
 using BookingApi.Application.Exceptions;
 using BookingApi.Application.Helpers;
 using BookingApi.Application.Interfaces;
+using BookingApi.Application.Models;
 using BookingApi.Domain.Entities;
 using BookingApi.Domain.Enums;
 using Microsoft.Extensions.Configuration;
@@ -13,17 +14,20 @@ namespace BookingApi.Infrastructure.Services
 		private readonly IUserRepository _userRepository;
 		private readonly IUnitOfWork _unitOfWork;
 		private readonly JwtService _jwtService;
+		private readonly IBackgroundJobQueue _backgroundJobQueue;
 		private readonly int _expiryMinutes;
 
 		public AuthService(
 			IUserRepository userRepository,
 			IUnitOfWork unitOfWork,
 			JwtService jwtService,
+			IBackgroundJobQueue backgroundJobQueue,
 			IConfiguration configuration)
 		{
 			_userRepository = userRepository;
 			_unitOfWork = unitOfWork;
 			_jwtService = jwtService;
+			_backgroundJobQueue = backgroundJobQueue;
 			_expiryMinutes = int.Parse(configuration["Jwt:ExpiryMinutes"] ?? "60");
 		}
 
@@ -59,6 +63,14 @@ namespace BookingApi.Infrastructure.Services
 
 			await _userRepository.AddAsync(user);
 			await _unitOfWork.SaveChangesAsync();
+
+			await _backgroundJobQueue.EnqueueAsync(new NotificationJob
+			{
+				Channel = NotificationChannel.Email,
+				Recipient = user.PhoneNumber,
+				Subject = "Xush kelibsiz!",
+				Message = $"Salom {user.FullName}! Booking Smart System ga muvaffaqiyatli ro'yxatdan o'tdingiz."
+			});
 
 			return BuildAuthResponse(user);
 		}

@@ -1,4 +1,5 @@
-﻿using BookingApi.Application.DTOs.Property;
+﻿using Asp.Versioning;
+using BookingApi.Application.DTOs.Property;
 using BookingApi.Application.Interfaces;
 using BookingSystem.API.Extensions;
 using Microsoft.AspNetCore.Authorization;
@@ -7,6 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingSystem.API.Controllers
 {
 	[ApiController]
+	[ApiVersion("1.0")]
+	[Route("api/v{version:apiVersion}/[controller]")]
 	[Route("api/[controller]")]
 	public class PropertiesController : ControllerBase
 	{
@@ -18,7 +21,7 @@ namespace BookingSystem.API.Controllers
 		}
 
 		/// <summary>
-		/// Barcha uylarni qidirish (Public)
+		/// Barcha uylarni qidirish (Public) — Redis cache bilan
 		/// </summary>
 		[HttpGet]
 		public async Task<ActionResult> Search([FromQuery] SearchPropertyRequest request)
@@ -28,7 +31,7 @@ namespace BookingSystem.API.Controllers
 		}
 
 		/// <summary>
-		/// Uy detali (Public)
+		/// Uy detali (Public) — Redis cache bilan
 		/// </summary>
 		[HttpGet("{id:guid}")]
 		public async Task<ActionResult<PropertyResponse>> GetById(Guid id)
@@ -47,7 +50,7 @@ namespace BookingSystem.API.Controllers
 		{
 			var ownerId = User.GetUserId();
 			var property = await _propertyService.CreateAsync(request, ownerId);
-			return CreatedAtAction(nameof(GetById), new { id = property.Id }, property);
+			return CreatedAtAction(nameof(GetById), new { id = property.Id, version = "1.0" }, property);
 		}
 
 		/// <summary>
